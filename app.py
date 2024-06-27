@@ -4,9 +4,10 @@ from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing.image import load_img, img_to_array
 from tensorflow.keras.applications.vgg16 import preprocess_input
 import numpy as np
+from PIL import Image
 
 # Load your .h5 model
-model = load_model('best_model_83.h5')
+model = load_model('best_model.h5')
 
 # Define the class labels
 class_labels = {
@@ -47,35 +48,59 @@ class_labels = {
     34: 'Tomato___Target_Spot',
     35: 'Tomato___Tomato_Yellow_Leaf_Curl_Virus',
     36: 'Tomato___Tomato_mosaic_virus',
-    37: 'Tomato___healthy'
+    37: 'Tomato___healthy',
+    38: 'Angular_leaf_spot',
+    39: 'bean_healthy',
+    40: 'bean_rust',
 }
 
 # Define the prediction function
-def prediction(path):
-    img = load_img(path, target_size=(256, 256))
+def prediction(img):
+    img = img.resize((256, 256), Image.Resampling.LANCZOS)  # Resize the image to match the model's expected input shape
     i = img_to_array(img)
     im = preprocess_input(i)
     img = np.expand_dims(im, axis=0)
     pred = model.predict(img)
     return pred
+# def prediction(img):
+#     i = img_to_array(img)
+#     im = preprocess_input(i)
+#     img = np.expand_dims(im, axis=0)
+#     pred = model.predict(img)
+#     return pred
+
+# Set the page background color
+page_bg_img = '''
+<style>
+body {
+background-color: #d4f5dc;
+}
+</style>
+'''
+
+st.markdown(page_bg_img, unsafe_allow_html=True)
 
 # Streamlit app
 st.title('Plant Disease Classification App')
+st.write('Upload an image or take a picture of a plant leaf to predict its disease.')
 
 # File uploader for image
 uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
+captured_image = st.camera_input("Take a picture...")
 
-if uploaded_file is not None:
-    # Save the uploaded image temporarily
-    with open("temp_image.png", "wb") as f:
-        f.write(uploaded_file.getbuffer())
+if uploaded_file or captured_image:
+    if uploaded_file:
+        img = Image.open(uploaded_file)
+    else:
+        img = Image.open(captured_image)
 
-    # Display the uploaded image
-    st.image("temp_image.png", caption="Uploaded Image", use_column_width=False, width=300)
-    # do you know i trained my first ever model?? am soo happy, it got 79% accuracy and it predicted a number of images properly 
+    st.image(img, caption="Uploaded Image", use_column_width=True)
+    st.write("Just a second...")
 
     # Make prediction when button is clicked
     if st.button('Predict'):
-        pred = prediction("temp_image.png")
-        pred_class = np.argmax(pred, axis=1)[0]
-        st.write('Prediction:', class_labels[pred_class])
+        with st.spinner('Predicting...'):
+            pred = prediction(img)
+            pred_class = np.argmax(pred, axis=1)[0]
+            st.success(f'Prediction: {class_labels[pred_class]}')
+
